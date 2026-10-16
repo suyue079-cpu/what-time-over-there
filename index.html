@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Two Timezones, One Vibe</title>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --pink:#f06292; --pink-deep:#e0447c; --pink-soft:#fdeef4; --pink-line:#f8cddc;
+    --ink:#5b2338; --ink-soft:#9c6076; --ink-faint:#c493a4;
+    --card:#ffffff; --bg1:#fff7fa; --bg2:#ffeef5;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:'Quicksand',system-ui,sans-serif;
+    background:linear-gradient(160deg,var(--bg1),var(--bg2));
+    color:var(--ink); min-height:100vh; padding:24px 16px 64px;
+  }
+  .wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:20px;}
+  button{font:inherit;cursor:pointer;}
+  h1{font-size:22px;font-weight:700;text-align:center;letter-spacing:.5px;}
+  .sub{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:-12px;}
+
+  .conn{display:flex;justify-content:center;align-items:center;gap:6px;font-size:12px;font-weight:600;}
+  .dot{width:8px;height:8px;border-radius:50%;}
+  .dot.on{background:#43c465;box-shadow:0 0 8px #43c46588;}
+  .dot.off{background:#d8b3c1;}
+  .conn.on{color:#2e9e51;} .conn.off{color:var(--ink-faint);}
+
+  .city-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .city{background:var(--card);border:1px solid var(--pink-line);border-radius:16px;padding:16px;
+        display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 16px #f0629212;}
+  .city .name{font-size:13px;font-weight:600;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
+  .city .time{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;}
+  .city .temp{font-size:13px;color:var(--ink-faint);}
+
+  .gap-line{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--ink-faint);font-weight:600;}
+  .gap-line::before,.gap-line::after{content:"";flex:1;height:1px;background:var(--pink-line);}
+
+  .card{background:var(--card);border:1px solid var(--pink-line);border-radius:16px;padding:18px;
+        box-shadow:0 4px 16px #f0629212;display:flex;flex-direction:column;gap:12px;}
+  .label{font-size:15px;font-weight:700;}
+  .group-t{font-size:12px;font-weight:600;color:var(--ink-faint);}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{border:1.5px solid var(--pink-line);background:#fff;color:var(--ink);border-radius:999px;
+        padding:7px 15px;font-size:14px;font-weight:600;transition:all .18s ease;}
+  .chip:hover{background:var(--pink-soft);border-color:var(--pink);}
+  .chip.on{background:var(--pink);border-color:var(--pink);color:#fff;box-shadow:0 3px 10px #f0629255;}
+
+  .mood-line{font-size:14px;color:var(--ink-soft);min-height:20px;font-style:italic;}
+
+  .partner-box{background:var(--pink-soft);border:1px dashed var(--pink);border-radius:16px;padding:18px;
+        display:flex;flex-direction:column;gap:10px;}
+  .partner-box .label{color:var(--pink-deep);}
+  .p-row{font-size:14px;line-height:1.7;}
+  .p-row b{color:var(--pink-deep);}
+  .p-empty{font-size:14px;color:var(--ink-faint);font-style:italic;}
+
+  .slider-row{display:flex;align-items:center;gap:12px;}
+  .slider-row input{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:999px;
+        background:var(--pink-line);outline:none;cursor:pointer;}
+  .slider-row input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+        background:#fff;border:3px solid var(--pink);box-shadow:0 2px 8px #f0629266;cursor:pointer;}
+  .slider-val{font-size:15px;font-weight:700;min-width:48px;text-align:right;font-variant-numeric:tabular-nums;color:var(--pink-deep);}
+  .slider-label{font-size:14px;color:var(--ink-soft);min-height:20px;}
+
+  .play-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .play{background:var(--card);border:1px solid var(--pink-line);border-radius:16px;padding:16px;
+        display:flex;flex-direction:column;gap:10px;box-shadow:0 4px 16px #f0629212;}
+  .play .t{font-size:14px;font-weight:700;}
+  .play-btn{border:1.5px solid var(--pink);border-radius:999px;padding:8px 16px;font-size:13px;font-weight:700;
+        background:#fff;color:var(--pink-deep);transition:all .18s ease;align-self:flex-start;}
+  .play-btn:hover{background:var(--pink);color:#fff;}
+  .play-btn:active{transform:scale(.95);}
+  .play-out{font-size:13px;color:var(--ink-soft);line-height:1.6;min-height:38px;}
+  .coin{width:46px;height:46px;border-radius:50%;border:2.5px solid var(--pink);display:flex;align-items:center;
+        justify-content:center;font-size:17px;font-weight:700;color:var(--pink-deep);background:#fff;}
+  .coin.flipping{animation:flip .6s ease;}
+  @keyframes flip{from{transform:rotateY(0);}to{transform:rotateY(720deg);}}
+
+  .heart-wrap{position:relative;width:22px;height:22px;display:inline-block;vertical-align:middle;}
+  .float-heart{position:absolute;left:50%;top:0;transform:translateX(-50%);animation:rise 1.1s ease-out forwards;pointer-events:none;}
+  @keyframes rise{from{opacity:1;transform:translate(-50%,0) scale(.8);}to{opacity:0;transform:translate(-50%,-52px) scale(1.25);}}
+  .beat-heart{animation:beat .9s ease;}
+  @keyframes beat{0%,100%{transform:scale(1);}20%{transform:scale(1.3);}40%{transform:scale(.92);}60%{transform:scale(1.2);}}
+
+  .summary{border:1.5px dashed var(--pink);background:var(--pink-soft);border-radius:16px;padding:16px 18px;
+        font-size:14px;line-height:1.8;color:var(--ink-soft);}
+  .streak{text-align:center;font-size:13px;font-weight:700;color:var(--pink-deep);}
+
+  .ping-toast{position:fixed;top:20px;left:50%;transform:translate(-50%,-140px);background:var(--pink-deep);
+        color:#fff;padding:14px 22px;border-radius:999px;font-size:14px;font-weight:600;
+        box-shadow:0 8px 30px #e0447c66;transition:transform .5s cubic-bezier(.2,1.4,.4,1);z-index:99;
+        display:flex;align-items:center;gap:8px;max-width:90vw;text-align:center;}
+  .ping-toast.show{transform:translate(-50%,0);}
+
+  @media(max-width:560px){.play-grid{grid-template-columns:1fr;}.city .time{font-size:24px;}}
+</style>
+<base target="_blank">
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Two Timezones, One Vibe</h1>
+  <div class="sub">Valencia &middot; Beijing — a low-key check-in for two people who are definitely not dating</div>
+  <div class="conn off" id="connChip"><span class="dot off" id="connDot"></span><span id="connText">Solo mode — connect to see each other live</span></div>
+
+  <div class="city-row">
+    <div class="city">
+      <div class="name">&#128205; Valencia, Spain</div>
+      <div class="time" id="tVal">--:--:--</div>
+      <div class="temp" id="wVal">Clear &middot; 23&deg;C</div>
+    </div>
+    <div class="city">
+      <div class="name">&#128205; Beijing, China</div>
+      <div class="time" id="tBj">--:--:--</div>
+      <div class="temp" id="wBj">Cloudy &middot; 14&deg;C</div>
+    </div>
+  </div>
+  <div class="gap-line">6 hours apart &middot; your evening is their afternoon</div>
+
+  <div class="partner-box">
+    <div class="label">Their today &middot; live</div>
+    <div id="partnerView"><div class="p-empty">Waiting for them to check in... (or connect sync below)</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Today's vibe about them</div>
+    <div class="chips" id="moodChips">
+      <button class="chip moodchip" data-m="intrigued">Intrigued</button>
+      <button class="chip moodchip" data-m="butterflies">Butterflies</button>
+      <button class="chip moodchip" data-m="confused">Confused</button>
+      <button class="chip moodchip" data-m="unbothered">Unbothered</button>
+    </div>
+    <div class="mood-line" id="moodLine">Pick one. No pressure. (Some pressure.)</div>
+  </div>
+
+  <div class="card">
+    <div class="label">What I did today</div>
+    <div class="chips" id="doChips">
+      <button class="chip dochip">Work</button>
+      <button class="chip dochip">Gym</button>
+      <button class="chip dochip">Studied</button>
+      <button class="chip dochip">Rested</button>
+      <button class="chip dochip">Watched the game</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">What I ate</div>
+    <div class="group-t">Spain</div>
+    <div class="chips" id="esChips">
+      <button class="chip eschip">Paella</button>
+      <button class="chip eschip">Tapas</button>
+      <button class="chip eschip">Churros</button>
+      <button class="chip eschip">Jam&oacute;n ib&eacute;rico</button>
+      <button class="chip eschip">Tortilla espa&ntilde;ola</button>
+      <button class="chip eschip">Sangr&iacute;a</button>
+    </div>
+    <div class="group-t">Beijing</div>
+    <div class="chips" id="bjChips">
+      <button class="chip bjchip">Zhajiangmian</button>
+      <button class="chip bjchip">Peking duck</button>
+      <button class="chip bjchip">Lamb hotpot</button>
+      <button class="chip bjchip">Luzhu</button>
+      <button class="chip bjchip">Douzhir &amp; jiaoquan</button>
+      <button class="chip bjchip">Tanghulu</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Play zone</div>
+    <div class="play-grid">
+      <div class="play">
+        <div class="t">Crush-o-meter</div>
+        <div class="slider-row">
+          <input type="range" id="crush" min="0" max="100" value="50">
+          <div class="slider-val" id="crushVal">50%</div>
+        </div>
+        <div class="slider-label" id="crushLabel">Casually on your mind</div>
+      </div>
+      <div class="play">
+        <div class="t">Who texts first?</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="coin" id="coin">?</div>
+          <button class="play-btn" id="flipBtn">Flip the coin</button>
+        </div>
+        <div class="play-out" id="flipOut">Tonight's conversation, decided by physics.</div>
+      </div>
+      <div class="play">
+        <div class="t">Conversation starter</div>
+        <div class="play-out" id="qOut">Draw a card. Break the ice without looking too eager.</div>
+        <button class="play-btn" id="qBtn">Draw a card</button>
+      </div>
+      <div class="play">
+        <div class="t">Thinking-of-you ping</div>
+        <div class="mood-line" id="pingLine">Low-key. Deniable. Effective.</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="play-btn" id="pingBtn" style="display:flex;align-items:center;gap:8px;">
+            <span class="heart-wrap"><svg id="pingHeart" width="18" height="18" viewBox="0 0 24 24" fill="#f06292"><path d="M12 21s-7-4.9-9.3-9.2C.9 8.3 3 4.5 6.8 4.5c2.2 0 3.9 1.2 5.2 3 1.3-1.8 3-3 5.2-3 3.8 0 5.9 3.8 4.1 7.3C19 16.1 12 21 12 21z"/></svg></span>
+            Send ping
+          </button>
+          <div class="group-t" id="pingCount"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary" id="summary">Your daily recap will appear here.</div>
+  <div class="streak" id="streak"></div>
+</div>
+
+<div class="ping-toast" id="pingToast"></div>
+
+<script>
+/* ============================================================
+   SETUP — do these 3 steps to go live with your partner:
+   1. Create a FREE project at https://supabase.com (2 min)
+   2. Project Settings -> API: copy "Project URL" and "anon public" key below
+   3. Deploy this file (GitHub Pages / Netlify / Vercel) and share the link
+   No database tables needed — we use Realtime Broadcast + Presence only.
+   ============================================================ */
+const SUPABASE_URL = "";        // e.g. "https://xyzxyz.supabase.co"
+const SUPABASE_ANON_KEY = "";   // e.g. "eyJhbGciOi..."
+const ROOM = "us-two";          // your private room name — change it to something only you two know
+
+/* Optional: real weather. Free key from https://openweathermap.org */
+const WEATHER_API_KEY = "";
+const CITIES = [
+  { el:"wVal", q:"Valencia,ES", fallback:"Clear · 23°C" },
+  { el:"wBj",  q:"Beijing,CN",  fallback:"Cloudy · 14°C" }
+];
+
+const moods = {
+  intrigued:  { t:"intrigued",  line:"They're on your mind. Interesting." },
+  butterflies:{ t:"butterflies",line:"Uh oh. It's happening." },
+  confused:   { t:"confused",   line:"Mixed signals again? Classic." },
+  unbothered: { t:"unbothered", line:"Cool. Cool cool cool. (You're not.)" }
+};
+const questions = [
+  "What did you eat today? Describe it like a food critic.",
+  "Send me a photo of your sky right now.",
+  "What song is stuck in your head today?",
+  "Rate your day from 1 to 10, but only using movie titles.",
+  "What made you laugh today?",
+  "If we were in the same city right now, where would we go?",
+  "Be honest: on a scale of 1 to 10, how much did you think about me today?",
+  "What's a small thing you noticed about me that you never mentioned?"
+];
+const pings = [
+  "Thinking about you. Professionally, of course.",
+  "You crossed my mind. Rude of you, honestly.",
+  "Just checking in. This means nothing. (It means something.)",
+  "Saw something today that reminded me of you. Annoying, really.",
+  "Ping at a completely normal, non-calculated hour. Totally."
+];
+
+let state = loadState();
+let sb = null, channel = null, myName = "me";
+
+function loadState(){
+  try{ return Object.assign({mood:null,dos:[],es:[],bj:[],crush:50,pings:0}, JSON.parse(localStorage.getItem("ttv_state")||"{}")); }
+  catch(e){ return {mood:null,dos:[],es:[],bj:[],crush:50,pings:0}; }
+}
+function saveState(){ localStorage.setItem("ttv_state", JSON.stringify(state)); }
+
+function crushWord(v){
+  if(v<=5)return "Who?";
+  if(v<=25)return "Barely";
+  if(v<=50)return "Casually on your mind";
+  if(v<=75)return "Often, actually";
+  if(v<=95)return "A lot. An embarrassing lot.";
+  return "It's a problem. A good problem.";
+}
+
+/* ---------- clocks ---------- */
+function tick(){
+  const n = new Date();
+  document.getElementById("tVal").textContent = n.toLocaleTimeString("en-GB",{timeZone:"Europe/Madrid",hour12:false});
+  document.getElementById("tBj").textContent  = n.toLocaleTimeString("en-GB",{timeZone:"Asia/Shanghai",hour12:false});
+}
+tick(); setInterval(tick,1000);
+
+/* ---------- optional weather ---------- */
+if(WEATHER_API_KEY){
+  CITIES.forEach(c=>{
+    fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(c.q)}&appid=${WEATHER_API_KEY}&units=metric`)
+      .then(r=>r.json()).then(d=>{
+        if(d.main) document.getElementById(c.el).textContent =
+          `${d.weather[0].main} · ${Math.round(d.main.temp)}°C`;
+      }).catch(()=>{});
+  });
+}
+
+/* ---------- streak ---------- */
+(function(){
+  const days = JSON.parse(localStorage.getItem("ttv_days")||"[]");
+  const today = new Date().toDateString();
+  if(!days.includes(today)){ days.push(today); localStorage.setItem("ttv_days", JSON.stringify(days)); }
+  document.getElementById("streak").textContent = `Checking in together for ${days.length} day${days.length>1?"s":""} · keep the flame alive`;
+})();
+
+/* ---------- summary ---------- */
+function summary(){
+  let s = "Today you were feeling " + (state.mood || "...undecided (suspicious)");
+  if(state.dos.length) s += " — " + state.dos.join(", ");
+  const foods = state.es.concat(state.bj);
+  if(foods.length) s += ". You had " + foods.join(" & ") + ".";
+  s += ` You thought about them ${state.crush}% of the day. ${crushWord(+state.crush)}.`;
+  document.getElementById("summary").textContent = s;
+}
+
+/* ---------- broadcasting ---------- */
+function broadcastCheckin(){
+  saveState(); summary();
+  if(channel) channel.send({ type:"broadcast", event:"checkin", payload:{ name:myName, ...state } });
+}
+function broadcastPing(msg){
+  if(channel) channel.send({ type:"broadcast", event:"ping", payload:{ name:myName, msg } });
+}
+
+/* ---------- partner view ---------- */
+function renderPartner(p){
+  const box = document.getElementById("partnerView");
+  if(!p){ box.innerHTML = '<div class="p-empty">Waiting for them to check in... (or connect sync below)</div>'; return; }
+  const foods = (p.es||[]).concat(p.bj||[]);
+  box.innerHTML =
+    `<div class="p-row">Vibe: <b>${p.mood || "—"}</b> &nbsp;·&nbsp; Crush-o-meter: <b>${p.crush}%</b></div>` +
+    (p.dos && p.dos.length ? `<div class="p-row">They: ${p.dos.join(", ")}</div>` : "") +
+    (foods.length ? `<div class="p-row">They ate: ${foods.join(" & ")}</div>` : "") +
+    `<div class="p-row" style="color:var(--ink-faint)">"${crushWord(+p.crush)}"</div>`;
+}
+
+/* ---------- Supabase connect ---------- */
+function setConn(online, text){
+  const chip = document.getElementById("connChip");
+  chip.className = "conn " + (online ? "on" : "off");
+  document.getElementById("connDot").className = "dot " + (online ? "on" : "off");
+  document.getElementById("connText").textContent = text;
+}
+async function connect(){
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY){ setConn(false, "Solo mode — add Supabase keys in the code to sync live"); return; }
+  try{
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    myName = localStorage.getItem("ttv_name") || (Math.random() < .5 ? "valencia-side" : "beijing-side");
+    localStorage.setItem("ttv_name", myName);
+    channel = sb.channel("room-" + ROOM, { config:{ presence:{ key: myName } } });
+
+    channel.on("broadcast", { event:"checkin" }, ({ payload }) => {
+      if(payload.name !== myName) renderPartner(payload);
+    }).on("broadcast", { event:"ping" }, ({ payload }) => {
+      if(payload.name !== myName) showPingToast(payload.msg);
+    }).on("presence", { event:"sync" }, () => {
+      const others = Object.keys(channel.presenceState()).filter(k => k !== myName);
+      setConn(true, others.length ? "Connected · partner is online now" : "Connected · partner is offline (last state saved)");
+    }).subscribe(async status => {
+      if(status === "SUBSCRIBED"){
+        await channel.track({ online_at: new Date().toISOString() });
+        channel.send({ type:"broadcast", event:"checkin", payload:{ name:myName, ...state } });
+      }
+    });
+  }catch(e){ setConn(false, "Solo mode — sync failed to start"); }
+}
+connect();
+
+/* ---------- ping toast (incoming) ---------- */
+function showPingToast(msg){
+  const t = document.getElementById("pingToast");
+  t.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-7-4.9-9.3-9.2C.9 8.3 3 4.5 6.8 4.5c2.2 0 3.9 1.2 5.2 3 1.3-1.8 3-3 5.2-3 3.8 0 5.9 3.8 4.1 7.3C19 16.1 12 21 12 21z"/></svg><span>' + msg + "</span>";
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 3500);
+}
+
+/* ---------- UI bindings ---------- */
+document.getElementById("moodChips").addEventListener("click", function(e){
+  const b = e.target.closest(".moodchip"); if(!b) return;
+  const was = b.classList.contains("on");
+  this.querySelectorAll(".moodchip").forEach(c => c.classList.remove("on"));
+  state.mood = was ? null : b.dataset.m;
+  if(!was) b.classList.add("on");
+  document.getElementById("moodLine").textContent = state.mood ? moods[state.mood].line : "Pick one. No pressure. (Some pressure.)";
+  broadcastCheckin();
+});
+function bindMulti(id, key){
+  document.getElementById(id).addEventListener("click", function(e){
+    const b = e.target.closest(".chip"); if(!b) return;
+    b.classList.toggle("on");
+    const arr = []; this.querySelectorAll(".on").forEach(c => arr.push(c.textContent));
+    state[key] = arr; broadcastCheckin();
+  });
+}
+bindMulti("doChips","dos"); bindMulti("esChips","es"); bindMulti("bjChips","bj");
+
+document.getElementById("crush").addEventListener("input", function(){
+  state.crush = this.value;
+  document.getElementById("crushVal").textContent = this.value + "%";
+  document.getElementById("crushLabel").textContent = crushWord(+this.value);
+  broadcastCheckin();
+});
+
+document.getElementById("flipBtn").addEventListener("click", function(){
+  const coin = document.getElementById("coin"), out = document.getElementById("flipOut");
+  coin.classList.remove("flipping"); void coin.offsetWidth; coin.classList.add("flipping");
+  out.textContent = "Flipping..."; this.disabled = true;
+  const self = this;
+  setTimeout(()=>{
+    const heads = Math.random() < .5;
+    coin.textContent = heads ? "H" : "T";
+    out.textContent = heads ? "Heads — you text first. Bold." : "Tails — they text first. (Waiting is also a strategy.)";
+    self.disabled = false;
+  }, 600);
+});
+
+let lastQ = -1;
+document.getElementById("qBtn").addEventListener("click", ()=>{
+  let i; do{ i = Math.floor(Math.random()*questions.length); }while(i === lastQ);
+  lastQ = i;
+  document.getElementById("qOut").textContent = "\u201C" + questions[i] + "\u201D";
+});
+
+document.getElementById("pingBtn").addEventListener("click", function(){
+  const msg = pings[Math.floor(Math.random()*pings.length)];
+  state.pings++; saveState();
+  document.getElementById("pingLine").textContent = "\u201C" + msg + "\u201D";
+  broadcastPing(msg);
+  const h = document.getElementById("pingHeart");
+  h.classList.remove("beat-heart"); void h.getBoundingClientRect(); h.classList.add("beat-heart");
+  const f = h.cloneNode(true); f.removeAttribute("id"); f.classList.remove("beat-heart"); f.classList.add("float-heart");
+  this.querySelector(".heart-wrap").appendChild(f);
+  setTimeout(()=>f.remove(), 1100);
+});
+
+/* ---------- restore UI from saved state ---------- */
+(function restore(){
+  if(state.mood){
+    const b = document.querySelector(`.moodchip[data-m="${state.mood}"]`);
+    if(b) b.classList.add("on");
+    document.getElementById("moodLine").textContent = moods[state.mood].line;
+  }
+  [["doChips","dos"],["esChips","es"],["bjChips","bj"]].forEach(([id,key])=>{
+    state[key].forEach(v=>{
+      [...document.getElementById(id).children].forEach(c=>{ if(c.textContent===v) c.classList.add("on"); });
+    });
+  });
+  document.getElementById("crush").value = state.crush;
+  document.getElementById("crushVal").textContent = state.crush + "%";
+  document.getElementById("crushLabel").textContent = crushWord(+state.crush);
+  document.getElementById("pingCount").textContent = state.pings ? state.pings + " pings sent all-time" : "";
+  summary();
+})();
+</script>
+</body>
+</html>
